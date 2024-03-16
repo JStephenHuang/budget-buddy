@@ -9,9 +9,9 @@ export default function Home() {
           BUDGET BUDDY
         </Link>
       </header>
-      <section className="h-[90vh] w-full flex items-center justify-between gap-[2rem] p-[3rem]">
+      <section className="h-[90vh] w-full flex items-center justify-between gap-[3rem] p-[3rem]">
         <Image
-          className="w-3/5 h-full object-cover border bg-yellow-400"
+          className="w-3/5 h-full object-cover bg-yellow-400"
           src={"/landingimg.png"}
           alt=""
           width={1000}
@@ -30,7 +30,7 @@ export default function Home() {
               amet consectetur adipisicing elit. Harum debitis sapiente sed
               quidem.
             </p>
-            <Link className="button text-center" href="/tax-tool">
+            <Link className="button text-center" href="/receipt-tool">
               Start tracking your expenses
             </Link>
           </div>
