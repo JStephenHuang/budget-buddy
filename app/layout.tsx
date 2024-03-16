@@ -17,7 +17,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={spaceMono.className}>{children}</body>
+      <body className={spaceMono.className}>
+        {children}
+        <script src="../path/to/flowbite/dist/flowbite.min.js"></script>
+      </body>
     </html>
   );
 }
