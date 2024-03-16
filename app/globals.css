@@ -4,6 +4,7 @@
 
 :root {
   --navh: 10vh;
+  --spacing: 3rem
 }
 
 .title {

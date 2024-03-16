@@ -1,15 +1,12 @@
 import Image from "next/image";
 import Link from "next/link";
 
+
 export default function Home() {
   return (
     <main className="">
-      <header className="h-[--navh] border-b flex items-center p-[3rem]">
-        <Link className="" href="/">
-          BUDGET BUDDY
-        </Link>
-      </header>
-      <section className="h-[90vh] w-full flex items-center justify-between gap-[3rem] p-[3rem]">
+     
+      <section className="h-[90vh] w-full flex items-center justify-between gap-[--spacing] p-[--spacing]">
         <Image
           className="w-3/5 h-full object-cover bg-yellow-400"
           src={"/landingimg.png"}
@@ -17,7 +14,7 @@ export default function Home() {
           width={1000}
           height={1000}
         ></Image>
-        <div className="w-2/5 h-full flex flex-col gap-[2rem]">
+        <div className="w-2/5 h-full flex flex-col gap-[--spacing]">
           <div className="title">
             <h1>BUDGET SMART</h1>
             <h1>BUDGET EASY</h1>
