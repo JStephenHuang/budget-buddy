@@ -31,6 +31,12 @@ export default function Home() {
               Start tracking your expenses
             </Link>
           </div>
+          <div className="h-full flex flex-col justify-between">
+            <p>Your personal expenses in charts, diagrams, and numbers.</p>
+            <Link className="button text-center" href="/analytics">
+              Start viewing your analytics
+            </Link>
+          </div>
         </div>
       </section>
     </main>
