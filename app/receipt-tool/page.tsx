@@ -13,7 +13,7 @@ export default function TaxToolPage() {
         </div>
         <div className="w-1/2 aspect-square border grid place-items-center border-black">
           Input Receipt
-        </div>
+        </div>  
       </section>
     </div>
   );
