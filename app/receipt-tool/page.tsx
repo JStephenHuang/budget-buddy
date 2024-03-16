@@ -3,10 +3,44 @@
 import React, { useState } from "react";
 
 import Image from "next/image";
+import { upload } from "@/src/read-receipt";
 
-export default function TaxToolPage() {
+// const getReceipts = async () => {
+//   const res = await fetch(`${process.env.BASE_URL}/api/receipts`, {
+//     cache: "force-cache",
+//   });
+
+//   if (!res.ok) throw new Error("Unable to fetch member");
+
+//   return res.json();
+// };
+
+// const readReceipt = async (file: string) => {
+//   const res = await fetch(`/api/read`, {
+//     method: "POST",
+//     body: JSON.stringify({
+//       file_data: file,
+//       country: "CA",
+//     }),
+//   });
+
+//   if (!res.ok) throw new Error("Unable to read receipt");
+
+//   const data = await res.json();
+
+//   const receiptInfo = JSON.parse(data);
+
+//   console.log(receiptInfo.file_data);
+//   return data.file_data;
+// };
+export default function ReceiptToolPage() {
   const [preview, setPreview] = useState<string | ArrayBuffer | null>(null);
   const [file, setFile] = useState<File | undefined>();
+  const [revealInfo, setRevealInfo] = useState<boolean>(false);
+
+  const readReceipt = (file: string) => {
+    setRevealInfo(true);
+  };
 
   function handleOnChange(e: React.FormEvent<HTMLInputElement>) {
     const target = e.target as HTMLInputElement & {
@@ -26,7 +60,7 @@ export default function TaxToolPage() {
 
   return (
     <div className="mt-[--navh] p-[3rem]">
-      <section className="flex">
+      <section className="flex gap-[3rem]">
         <div className="w-1/2 flex flex-col gap-[3rem]">
           <h1 className="title">BUDGET BUDDY'S RECEIPT TOOL</h1>
           <p>
@@ -35,6 +69,15 @@ export default function TaxToolPage() {
           </p>
           <p>Input your receipt here!</p>
           <input type="file" name="image" onChange={handleOnChange} />
+
+          {preview && (
+            <button
+              onClick={() => readReceipt(preview.toString())}
+              className="button"
+            >
+              Scan receipt
+            </button>
+          )}
         </div>
         {preview ? (
           <img
