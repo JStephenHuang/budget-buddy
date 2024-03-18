@@ -1,3 +1,6 @@
+This website is a prototype. It only serves as a proof of concept.
+
+
 This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
 
 ## Getting Started
