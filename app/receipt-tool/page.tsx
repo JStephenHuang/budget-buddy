@@ -1,44 +1,54 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
+
 import { GET } from "../api/receipts/route";
 import { POST } from "../api/read/route";
 
 export default function TaxToolPage() {
   const [preview, setPreview] = useState<string | ArrayBuffer | null>(null);
   const [info, setInfo] = useState({
-    date: 'Unknown',
+    date: "Unknown",
     taxes: 0.0,
     total: 0.0,
     vendor: {
-      name: 'Unknown',
-      type: 'Unknown'
-    }
+      name: "Unknown",
+      type: "Unknown",
+    },
   });
   const [revealInfo, setRevealInfo] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
-  const [fileStr, setFileStr] = useState<string>('')
-  const [stats, setStats] = useState({})
+  const [fileStr, setFileStr] = useState<string>("");
+  const [stats, setStats] = useState({});
 
   const readReceipt = async () => {
     if (fileStr) {
       setLoading(true);
-      const response = await POST(fileStr)
+      const data = {
+        fileStr: fileStr,
+      };
+      const response = await fetch("http://localhost:3000/api/read", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
       setLoading(false);
-      setInfo(response)
+      console.log(response);
       if (info) setRevealInfo(true);
     }
-  }
+  };
 
   useEffect(() => {
     const init = async () => {
-      const response = await GET()
-      setStats(response)
-    }
-    init()
-  }, [])
+      const response = await GET();
+      setStats(response);
+    };
+    init();
+  }, []);
 
-  console.log(stats)
+  console.log(stats);
 
   function handleOnChange(e: React.FormEvent<HTMLInputElement>) {
     setRevealInfo(false);
@@ -53,7 +63,7 @@ export default function TaxToolPage() {
 
     file.onload = function () {
       if (typeof file.result === "string") {
-        setFileStr(file.result)
+        setFileStr(file.result);
       }
       setPreview(file.result);
     };
@@ -95,11 +105,11 @@ export default function TaxToolPage() {
           <div className="w-1/2">
             <h1 className="title">YOUR RECEIPT</h1>
             <div className="w-full">
-              <p>Company: {info.vendor.name || 'Unknown'}</p>
-              <p>Type: {info.vendor.type || 'Unknown'}</p>
+              <p>Company: {info.vendor.name || "Unknown"}</p>
+              <p>Type: {info.vendor.type || "Unknown"}</p>
               <p>Tax paid: {(info.taxes || 0.0).toFixed(2)} $</p>
-              <p>Date: {info.date || 'Unknown'}</p>
-              <p>Total: {(info.total|| 0.0).toFixed(2)} $</p>
+              <p>Date: {info.date || "Unknown"}</p>
+              <p>Total: {(info.total || 0.0).toFixed(2)} $</p>
             </div>
           </div>
 
