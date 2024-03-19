@@ -16,8 +16,8 @@ app.get('/upload', async(req, res) => {
       url: 'https://api.veryfi.com/api/v8/partner/documents',
       headers: { 
         'Accept': 'application/json', 
-        'CLIENT-ID': 'vrf1oZgHUxnMyXzpIB6UbPtyrKSSI5dGWX676U7', 
-        'AUTHORIZATION': 'apikey cedricdara:caa4e9db3896a04a9719c1859270ffe4'
+        'CLIENT-ID': 'vrfIodcVWgMi1C0TjWuXflYWndIMVcg172keV3A', 
+        'AUTHORIZATION': 'apikey peizheg:4b36ee9e8451ef3028ca767693f5ceb1', 
       }
     }
 
@@ -40,8 +40,8 @@ app.post('/upload', async(req, res) => {
       headers: { 
         'Content-Type': 'application/json', 
         'Accept': 'application/json', 
-        'CLIENT-ID': 'vrf1oZgHUxnMyXzpIB6UbPtyrKSSI5dGWX676U7', 
-        'AUTHORIZATION': 'apikey cedricdara:caa4e9db3896a04a9719c1859270ffe4'
+        'CLIENT-ID': 'vrfIodcVWgMi1C0TjWuXflYWndIMVcg172keV3A', 
+        'AUTHORIZATION': 'apikey peizheg:4b36ee9e8451ef3028ca767693f5ceb1', 
       },
       data: { file_data: fileData }
     };
