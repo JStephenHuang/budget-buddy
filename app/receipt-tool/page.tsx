@@ -1,42 +1,54 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 
-import Image from "next/image";
-import { dollarama } from "@/src/docs";
-
-const Item = ({ label, value }: { label: string; value: string }) => {
-  return (
-    <li className="w-full flex justify-between items-center">
-      <p>-{label}</p>
-      <p>{value}</p>
-    </li>
-  );
-};
-
-const InfoLine = ({ label, value }: { label: string; value: string }) => {
-  return (
-    <li className="w-full flex justify-between items-center">
-      <p>{label}</p>
-      <p>{value}$</p>
-    </li>
-  );
-};
+import { GET } from "../api/receipts/route";
+import { POST } from "../api/read/route";
 
 export default function TaxToolPage() {
   const [preview, setPreview] = useState<string | ArrayBuffer | null>(null);
-  const [file, setFile] = useState<File | undefined>();
+  const [info, setInfo] = useState({
+    date: "Unknown",
+    taxes: 0.0,
+    total: 0.0,
+    vendor: {
+      name: "Unknown",
+      type: "Unknown",
+    },
+  });
   const [revealInfo, setRevealInfo] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
-  function timeout(delay: number) {
-    return new Promise((res) => setTimeout(res, delay));
-  }
+  const [fileStr, setFileStr] = useState<string>("");
+  const [stats, setStats] = useState({});
+
   const readReceipt = async () => {
-    setLoading(true);
-    await timeout(1000);
-    setLoading(false);
-    setRevealInfo(true);
+    if (fileStr) {
+      setLoading(true);
+      const data = {
+        fileStr: fileStr,
+      };
+      const response = await fetch("http://localhost:3000/api/read", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
+      setLoading(false);
+      console.log(response);
+      if (info) setRevealInfo(true);
+    }
   };
+
+  useEffect(() => {
+    const init = async () => {
+      const response = await GET();
+      setStats(response);
+    };
+    init();
+  }, []);
+
+  console.log(stats);
 
   function handleOnChange(e: React.FormEvent<HTMLInputElement>) {
     setRevealInfo(false);
@@ -45,24 +57,17 @@ export default function TaxToolPage() {
       files: FileList;
     };
 
-    setFile(target.files[0]);
-
     const file = new FileReader();
 
     file.readAsDataURL(target.files[0]);
 
     file.onload = function () {
+      if (typeof file.result === "string") {
+        setFileStr(file.result);
+      }
       setPreview(file.result);
     };
   }
-
-  const totalTax = dollarama.tps + dollarama.tvq;
-
-  let total = totalTax;
-
-  dollarama.items.map((items: { name: string; price: number }) => {
-    total += items.price;
-  });
 
   return (
     <div className="mt-[--navh] p-[--spacing]">
@@ -100,30 +105,11 @@ export default function TaxToolPage() {
           <div className="w-1/2">
             <h1 className="title">YOUR RECEIPT</h1>
             <div className="w-full">
-              {Object.keys(dollarama).map((keyName, i) =>
-                keyName !== "items" ? (
-                  <div className="w-full flex justify-between" key={i}>
-                    <span className="">{keyName}: </span>
-                    <span>{dollarama[keyName]}</span>
-                  </div>
-                ) : null
-              )}
-              <p>items:</p>
-              <div className="w-full flex justify-between">
-                <ul className="w-full list-disc flex flex-col items-center">
-                  {dollarama.items.map(
-                    (item: { name: string; price: number }, key: number) => (
-                      <Item
-                        key={key}
-                        label={item.name}
-                        value={`${item.price}$`}
-                      />
-                    )
-                  )}
-                </ul>
-              </div>
-              <InfoLine label="total tax:" value={totalTax} />
-              <InfoLine label="total tax:" value={total} />
+              <p>Company: {info.vendor.name || "Unknown"}</p>
+              <p>Type: {info.vendor.type || "Unknown"}</p>
+              <p>Tax paid: {(info.taxes || 0.0).toFixed(2)} $</p>
+              <p>Date: {info.date || "Unknown"}</p>
+              <p>Total: {(info.total || 0.0).toFixed(2)} $</p>
             </div>
           </div>
 
