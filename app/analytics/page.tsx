@@ -2,47 +2,59 @@
 
 import Link from "next/link";
 import { Doughnut, Line } from "react-chartjs-2";
-import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, PointElement, LineElement } from "chart.js";
+import {
+  Chart as ChartJS,
+  ArcElement,
+  Tooltip,
+  Legend,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+} from "chart.js";
 
-ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, PointElement, LineElement)
+ChartJS.register(
+  ArcElement,
+  Tooltip,
+  Legend,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement
+);
 
 const AnalyticsPage = () => {
-
   const donutStyle = {
     width: 400,
     height: 400,
-  }
+  };
 
   const lineStyle = {
     width: 800,
     height: 400,
-  }
+  };
 
   return (
-    <div className="mx-4">
-      <header className="h-[--navh] border-b flex items-center p-[3rem]">
-        <Link className="" href="/">
-          BUDGET BUDDY
-        </Link>
-      </header>
-      <div className="my-[64px] text-lg w-4/5 h-full flex flex-col gap-[2rem]">
+    <div className="p-[--spacing]">
+      <div className="text-lg w-full h-full flex flex-col gap-[2rem]">
         <div className="title">
-          <p>YOUR DATA IN NUMBERS</p>
-          <h3>CHARTS</h3>
-          <h3>AND DIAGRAMS</h3>
+          <p>OVERVIEW</p>
         </div>
       </div>
       <div className="mx-[32px] my-[64px] flex gap-[2rem] flex-wrap justify-around pr-[120px] items-center">
-        <div className="chart-container flex flex-col items-center" style={lineStyle}>
+        <div
+          className="chart-container flex flex-col items-center"
+          style={lineStyle}
+        >
           <p>Spending for the Past 6 Months</p>
           <Line
-            options={{ 
+            options={{
               maintainAspectRatio: false,
               scales: {
                 y: {
-                  beginAtZero: true
-                }
-            }
+                  beginAtZero: true,
+                },
+              },
             }}
             data={{
               labels: ["January", "February", "March", "April", "May", "June"],
@@ -56,7 +68,7 @@ const AnalyticsPage = () => {
                     "#FF8066",
                     "#845EC2",
                     "#FF6F91",
-                    "#B0A8B9"
+                    "#B0A8B9",
                   ],
                 },
               ],
@@ -85,37 +97,59 @@ const AnalyticsPage = () => {
             <tbody className="bg-white divide-y divide-gray-200">
               <tr>
                 <td className="px-6 py-4 whitespace-nowrap">Groceries</td>
-                <td className="px-6 py-4 whitespace-nowrap text-right">430.53 $</td>
+                <td className="px-6 py-4 whitespace-nowrap text-right">
+                  430.53 $
+                </td>
               </tr>
               <tr>
                 <td className="px-6 py-4 whitespace-nowrap">Transportation</td>
-                <td className="px-6 py-4 whitespace-nowrap text-right">122.74 $</td>
+                <td className="px-6 py-4 whitespace-nowrap text-right">
+                  122.74 $
+                </td>
               </tr>
               <tr>
                 <td className="px-6 py-4 whitespace-nowrap">Restaurant</td>
-                <td className="px-6 py-4 whitespace-nowrap text-right">92.13 $</td>
+                <td className="px-6 py-4 whitespace-nowrap text-right">
+                  92.13 $
+                </td>
               </tr>
               <tr>
                 <td className="px-6 py-4 whitespace-nowrap">Clothing</td>
-                <td className="px-6 py-4 whitespace-nowrap text-right">57.85 $</td>
+                <td className="px-6 py-4 whitespace-nowrap text-right">
+                  57.85 $
+                </td>
               </tr>
               <tr>
                 <td className="px-6 py-4 whitespace-nowrap">Medical</td>
-                <td className="px-6 py-4 whitespace-nowrap text-right">10.26 $</td>
+                <td className="px-6 py-4 whitespace-nowrap text-right">
+                  10.26 $
+                </td>
               </tr>
               <tr>
                 <td className="px-6 py-4 whitespace-nowrap">Other</td>
-                <td className="px-6 py-4 whitespace-nowrap text-right">70.43 $</td>
+                <td className="px-6 py-4 whitespace-nowrap text-right">
+                  70.43 $
+                </td>
               </tr>
             </tbody>
           </table>
         </div>
-        <div className="chart-container flex flex-col items-center" style={donutStyle}>
+        <div
+          className="chart-container flex flex-col items-center"
+          style={donutStyle}
+        >
           <p>Doughnut Chart</p>
-          <Doughnut 
+          <Doughnut
             options={{ maintainAspectRatio: false }}
             data={{
-              labels: ["Groceries", "Transportation", "Restaurant", "Clothing", "Medical", "Other"],
+              labels: [
+                "Groceries",
+                "Transportation",
+                "Restaurant",
+                "Clothing",
+                "Medical",
+                "Other",
+              ],
               datasets: [
                 {
                   label: "Doughnut Chart",
@@ -126,15 +160,17 @@ const AnalyticsPage = () => {
                     "#FF8066",
                     "#845EC2",
                     "#FF6F91",
-                    "#B0A8B9"
-                  ]
+                    "#B0A8B9",
+                  ],
                 },
               ],
             }}
           />
         </div>
-        <div className='w-2/5'>
-          <p><b>Your Budget This Month: </b></p>
+        <div className="w-2/5">
+          <p>
+            <b>Your Budget This Month: </b>
+          </p>
           <p>757.13$/1000$</p>
           <div className="h-4 w-full bg-gray-200 rounded-full">
             <div
@@ -145,7 +181,7 @@ const AnalyticsPage = () => {
           <p className="mt-[10px] text-[1.2rem]">Congratulations!!</p>
         </div>
       </div>
-      </div>
+    </div>
   );
 };
 

@@ -8,10 +8,10 @@
 }
 
 .title {
-  @apply text-[84px] font-bold tracking-tighter leading-[100px];
+  @apply text-[5rem] font-bold tracking-tighter leading-[5rem];
 }
 
 .button {
-  @apply inline-block px-[2rem] py-[1rem] border border-yellow-400
-  bg-yellow-400 hover:bg-transparent transition;
+  @apply inline-block px-[2rem] py-[0.75rem] border border-yellow-300
+  bg-yellow-300 hover:bg-transparent transition;
 }
