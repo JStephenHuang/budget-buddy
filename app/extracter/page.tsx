@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { useTesseract } from "@/src/hooks/useTesseract";
 import Tesseract, { recognize } from "tesseract.js";
 
@@ -101,7 +101,7 @@ export default function Extracter() {
                     <hr className="py-2" />
                     <div>
                       {items.map((item, key) => (
-                        <p>
+                        <p key={key}>
                           Item {key + 1}: ${item}
                         </p>
                       ))}
