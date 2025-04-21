@@ -18,8 +18,6 @@ interface ReceiptData {
 
 export default function Extracter() {
   const [preview, setPreview] = useState<string | ArrayBuffer | null>(null);
-  const [fileType, setFileType] = useState<"image" | null>(null);
-  const [fileName, setFileName] = useState<string>("");
   const { isLoading, worker } = useTesseract();
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
   const [processingStage, setProcessingStage] = useState<string>("");
@@ -34,39 +32,20 @@ export default function Extracter() {
 
     if (!target.files || target.files.length === 0) return;
 
-    const file = target.files[0];
-    setFileName(file.name);
+    const file = new FileReader();
+    file.readAsDataURL(target.files[0]);
 
-    const fileReader = new FileReader();
-
-    // Determine file type
-    if (file.type.startsWith("image/")) {
-      setFileType("image");
-    } else {
-      alert("Please upload an image file (JPEG, PNG, etc.)");
-      return;
-    }
-
-    fileReader.readAsDataURL(file);
-
-    fileReader.onload = function () {
-      setPreview(fileReader.result);
+    file.onload = function () {
+      setPreview(file.result);
     };
   }
 
   /**
-   * Parse receipt text to extract structured data
+   * Parse receipt text using line-by-line regex analysis
    * @param text - Raw text from OCR
    * @returns - Structured receipt data
    */
   const parseReceiptText = (text: string): ReceiptData => {
-    // Normalize text by removing extra spaces and converting to lowercase
-    const normalizedText = text.toLowerCase().trim();
-    const lines = normalizedText
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean);
-
     // Initialize receipt data structure
     const receiptData: ReceiptData = {
       subtotal: null,
@@ -76,60 +55,83 @@ export default function Extracter() {
       raw: text,
     };
 
-    // Regular expressions for finding relevant data
-    const subtotalRegex = /sub[-\s]*total[\s:]*\$?\s*(\d+\.\d{2})/i;
-    const taxRegex = /(?:tax|vat|gst|hst|TPS|tps|T™VQ|TVQ|tvq)[\s:]*\$?\s*(\d+\.\d{2})/i;
-    const totalRegex = /(?:TOTAL|total|amt|amount|sum)[\s:]*\$?\s*(\d+\.\d{2})/i;
+    // Split text into lines for line-by-line processing
+    const lines = text
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
 
-    // Helper function to extract price using regex
-    const extractPrice = (regex: RegExp, str: string): number | null => {
-      const match = str.match(regex);
-      if (match && match[1]) {
-        return parseFloat(match[1]);
+    // Regular expressions for dollar amounts
+    const dollarAmountRegex = /\$?\s*(\d+\.\d{2})/;
+
+    // Line by line analysis
+    lines.forEach((line) => {
+      // Convert to lowercase for case-insensitive matching
+      const lowerLine = line.toLowerCase();
+
+      // Check for dollar amount in the line
+      const amountMatch = line.match(dollarAmountRegex);
+      if (!amountMatch) return; // Skip lines without dollar amounts
+
+      const amount = parseFloat(amountMatch[1]);
+
+      // Check for tax indicators
+      if (
+        lowerLine.includes("tax") ||
+        lowerLine.includes("vat") ||
+        lowerLine.includes("gst") ||
+        lowerLine.includes("hst") ||
+        lowerLine.includes("tps") ||
+        lowerLine.includes("tvq")
+      ) {
+        receiptData.tax = amount;
+        return;
       }
-      return null;
-    };
 
-    // Try to find subtotal, tax, and total in the entire text first
-    receiptData.subtotal = extractPrice(subtotalRegex, normalizedText);
-    receiptData.tax = extractPrice(taxRegex, normalizedText);
-    receiptData.total = extractPrice(totalRegex, normalizedText);
-
-    // If total wasn't found with regex, try to find the largest number in the receipt
-    if (!receiptData.total) {
-      const allAmounts = normalizedText.match(/\d+\.\d{2}/g) || [];
-      const numberAmounts = allAmounts.map((amount) => parseFloat(amount));
-
-      if (numberAmounts.length > 0) {
-        receiptData.total = Math.max(...numberAmounts);
+      // Check for subtotal indicators
+      if (lowerLine.includes("sub") && (lowerLine.includes("total") || lowerLine.includes("tot"))) {
+        receiptData.subtotal = amount;
+        return;
       }
-    }
 
-    // Try to extract items with prices
-    const itemPriceRegex = /(.+?)\s+\$?\s*(\d+\.\d{2})\s*$/;
+      // Check for total indicators
+      // Total should be at the end and often has specific keywords
+      if (
+        (lowerLine.includes("total") ||
+          lowerLine.includes("amount") ||
+          lowerLine.includes("amt") ||
+          lowerLine.includes("sum")) &&
+        !lowerLine.includes("sub")
+      ) {
+        // Exclude subtotal
+        receiptData.total = amount;
+        return;
+      }
 
-    for (const line of lines) {
-      const match = line.match(itemPriceRegex);
+      // If none of the above, consider it a regular item
+      // Extract description by removing the price part
+      const description = line.replace(dollarAmountRegex, "").trim();
 
-      if (match && match[1] && match[2]) {
-        const description = match[1].trim();
-        const price = parseFloat(match[2]);
-
-        // Skip if this appears to be a subtotal, tax, or total line
-        if (
-          line.includes("subtotal") ||
-          line.includes("tax") ||
-          line.includes("total") ||
-          line.includes("sum") ||
-          line.includes("amount")
-        ) {
-          continue;
-        }
-
+      // Only add as an item if there's some description text
+      if (description.length > 0) {
         receiptData.items.push({
           description,
-          price,
+          price: amount,
         });
+      }
+    });
+
+    // If total wasn't found, use the largest amount as a fallback
+    if (receiptData.total === null) {
+      let allAmounts = [];
+
+      // Collect all amounts
+      if (receiptData.subtotal !== null) allAmounts.push(receiptData.subtotal);
+      if (receiptData.tax !== null) allAmounts.push(receiptData.tax);
+      receiptData.items.forEach((item) => allAmounts.push(item.price));
+
+      if (allAmounts.length > 0) {
+        receiptData.total = Math.max(...allAmounts);
       }
     }
 
@@ -143,15 +145,10 @@ export default function Extracter() {
     if (!worker || !preview) return;
 
     try {
-      setProcessingStage("Preparing document...");
-
-      // Process based on file type
-      let imageToProcess = preview.toString();
-
       setProcessingStage("Performing OCR...");
 
-      // Perform OCR with optimized settings
-      const result = await Tesseract.recognize(imageToProcess, "eng", {
+      // Perform OCR with optimized settings for receipt text
+      const result = await Tesseract.recognize(preview.toString(), "eng", {
         tessedit_char_whitelist:
           "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.$:,%- ",
         tessedit_pageseg_mode: Tesseract.PSM.SINGLE_BLOCK,
@@ -159,7 +156,7 @@ export default function Extracter() {
 
       setProcessingStage("Analyzing receipt data...");
 
-      // Parse the extracted text
+      // Parse the extracted text line by line
       const parsedData = parseReceiptText(result.data.text);
       setReceiptData(parsedData);
       setProcessingStage("");
@@ -172,8 +169,6 @@ export default function Extracter() {
   function resetForm() {
     setPreview(null);
     setReceiptData(null);
-    setFileType(null);
-    setFileName("");
     setProcessingStage("");
   }
 
@@ -182,21 +177,13 @@ export default function Extracter() {
       <section className="flex gap-[--spacing]">
         {preview ? (
           <div className="w-1/2 flex flex-col gap-[--spacing]">
-            <div className="relative w-full h-[60vh] border border-gray-300">
-              {fileType === "image" ? (
-                <Image
-                  className="w-full h-full object-contain"
-                  src={preview.toString()}
-                  alt="Receipt preview"
-                  width={500}
-                  height={800}
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-gray-100">
-                  <p className="font-mono text-lg">{fileName}</p>
-                </div>
-              )}
-            </div>
+            <Image
+              className="w-full h-[60vh] aspect-square object-contain"
+              src={preview.toString()}
+              alt="Receipt preview"
+              width={500}
+              height={800}
+            />
             <button
               onClick={resetForm}
               className="px-[2rem] py-[0.75rem] bg-red-300 border border-red-300"
@@ -294,7 +281,7 @@ export default function Extracter() {
                 ) : (
                   <button
                     onClick={extract}
-                    className="w-full px-[2rem] py-[0.75rem] bg-blue-500 text-white border border-blue-500 hover:bg-blue-600 transition"
+                    className="w-full px-[2rem] py-[0.75rem] bg-amber-400 border border-amber-400 hover:bg-transparent text-black transition"
                   >
                     Extract Receipt Data
                   </button>
