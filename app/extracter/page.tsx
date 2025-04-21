@@ -4,7 +4,6 @@ import React, { useState } from "react";
 import { useTesseract } from "@/src/hooks/useTesseract";
 import Tesseract from "tesseract.js";
 import Image from "next/image";
-import * as pdfjsLib from "pdfjs-dist";
 
 interface ReceiptData {
   subtotal: number | null;
@@ -19,7 +18,7 @@ interface ReceiptData {
 
 export default function Extracter() {
   const [preview, setPreview] = useState<string | ArrayBuffer | null>(null);
-  const [fileType, setFileType] = useState<"image" | "pdf" | null>(null);
+  const [fileType, setFileType] = useState<"image" | null>(null);
   const [fileName, setFileName] = useState<string>("");
   const { isLoading, worker } = useTesseract();
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
@@ -41,12 +40,10 @@ export default function Extracter() {
     const fileReader = new FileReader();
 
     // Determine file type
-    if (file.type === "application/pdf") {
-      setFileType("pdf");
-    } else if (file.type.startsWith("image/")) {
+    if (file.type.startsWith("image/")) {
       setFileType("image");
     } else {
-      alert("Please upload a PDF or image file");
+      alert("Please upload an image file (JPEG, PNG, etc.)");
       return;
     }
 
@@ -56,49 +53,6 @@ export default function Extracter() {
       setPreview(fileReader.result);
     };
   }
-
-  /**
-   * Converts a PDF page to an image
-   * @param pdfUrl - URL of the PDF to convert
-   * @returns - First page of the PDF as an image data URL
-   */
-  const convertPdfToImage = async (pdfUrl: string): Promise<string> => {
-    setProcessingStage("Converting PDF to image...");
-
-    // Dynamically import pdf.js only when needed
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-
-    try {
-      const loadingTask = pdfjsLib.getDocument(pdfUrl);
-      const pdf = await loadingTask.promise;
-      const page = await pdf.getPage(1); // Get first page
-
-      const scale = 2.0;
-      const viewport = page.getViewport({ scale });
-
-      // Prepare canvas for rendering PDF
-      const canvas = document.createElement("canvas");
-      const context = canvas.getContext("2d");
-
-      if (!context) {
-        throw new Error("Could not create canvas context");
-      }
-
-      canvas.height = viewport.height;
-      canvas.width = viewport.width;
-
-      // Render PDF page to canvas
-      await page.render({
-        canvasContext: context,
-        viewport: viewport,
-      }).promise;
-
-      return canvas.toDataURL("image/png");
-    } catch (error) {
-      console.error("Error converting PDF to image:", error);
-      throw error;
-    }
-  };
 
   /**
    * Parse receipt text to extract structured data
@@ -194,10 +148,6 @@ export default function Extracter() {
       // Process based on file type
       let imageToProcess = preview.toString();
 
-      if (fileType === "pdf") {
-        imageToProcess = await convertPdfToImage(imageToProcess);
-      }
-
       setProcessingStage("Performing OCR...");
 
       // Perform OCR with optimized settings
@@ -262,10 +212,10 @@ export default function Extracter() {
                 className="block mx-auto"
                 type="file"
                 name="receipt"
-                accept="image/*,application/pdf"
+                accept="image/*"
                 onChange={handleOnChange}
               />
-              <p className="mt-2 text-sm text-gray-500">Supports images and PDF files</p>
+              <p className="mt-2 text-sm text-gray-500">Supports images (JPG, PNG, ...)</p>
             </div>
           </div>
         )}
@@ -273,8 +223,8 @@ export default function Extracter() {
         <div className="w-1/2 flex flex-col gap-4">
           <h1 className="title">RECEIPT EXTRACTOR</h1>
           <p>
-            How to use... Simply upload a photo or PDF of your receipt, and we&apos;ll handle the
-            rest, extracting subtotal, tax, and total amounts automatically!
+            How to use... Simply upload a photo of your receipt, and we&apos;ll handle the rest,
+            extracting subtotal, tax, and total amounts automatically!
           </p>
 
           {preview &&
