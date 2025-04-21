@@ -2,54 +2,229 @@
 
 import React, { useState } from "react";
 import { useTesseract } from "@/src/hooks/useTesseract";
-import Tesseract, { recognize } from "tesseract.js";
+import Tesseract from "tesseract.js";
+import Image from "next/image";
+import * as pdfjsLib from "pdfjs-dist";
+
+interface ReceiptData {
+  subtotal: number | null;
+  tax: number | null;
+  total: number | null;
+  items: Array<{
+    description: string;
+    price: number;
+  }>;
+  raw: string;
+}
 
 export default function Extracter() {
   const [preview, setPreview] = useState<string | ArrayBuffer | null>(null);
-  const { isLoading, logs, worker } = useTesseract();
-  const [lines, setLines] = useState<Tesseract.Line[] | null>(null);
-  const [items, setItems] = useState<number[] | null>(null);
+  const [fileType, setFileType] = useState<"image" | "pdf" | null>(null);
+  const [fileName, setFileName] = useState<string>("");
+  const { isLoading, worker } = useTesseract();
+  const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
+  const [processingStage, setProcessingStage] = useState<string>("");
 
   function handleOnChange(e: React.FormEvent<HTMLInputElement>) {
     setPreview(null);
+    setReceiptData(null);
 
     const target = e.target as HTMLInputElement & {
       files: FileList;
     };
 
-    const file = new FileReader();
+    if (!target.files || target.files.length === 0) return;
 
-    file.readAsDataURL(target.files[0]);
+    const file = target.files[0];
+    setFileName(file.name);
 
-    file.onload = function () {
-      setPreview(file.result);
+    const fileReader = new FileReader();
+
+    // Determine file type
+    if (file.type === "application/pdf") {
+      setFileType("pdf");
+    } else if (file.type.startsWith("image/")) {
+      setFileType("image");
+    } else {
+      alert("Please upload a PDF or image file");
+      return;
+    }
+
+    fileReader.readAsDataURL(file);
+
+    fileReader.onload = function () {
+      setPreview(fileReader.result);
     };
   }
 
-  async function extract() {
-    if (!worker) return;
-    if (!preview) return;
+  /**
+   * Converts a PDF page to an image
+   * @param pdfUrl - URL of the PDF to convert
+   * @returns - First page of the PDF as an image data URL
+   */
+  const convertPdfToImage = async (pdfUrl: string): Promise<string> => {
+    setProcessingStage("Converting PDF to image...");
 
-    // await worker.loadLanguage("eng");
-    // await worker.initialize("eng");
+    // Dynamically import pdf.js only when needed
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
-    // const {
-    //   data: { text },
-    // } = await worker.recognize(preview.toString());
-
-    // return setText(text);
     try {
-      const res = await recognize(preview.toString());
-      setLines(res.data.lines);
-      const amounts = res.data.text.match(/\d+\.\d{2}\b/g) || [];
-      const items = Array.from(
-        new Set(amounts.map((amount) => parseFloat(amount)))
-      );
+      const loadingTask = pdfjsLib.getDocument(pdfUrl);
+      const pdf = await loadingTask.promise;
+      const page = await pdf.getPage(1); // Get first page
 
-      setItems(items.filter((item) => item !== Math.max(...items)));
+      const scale = 2.0;
+      const viewport = page.getViewport({ scale });
+
+      // Prepare canvas for rendering PDF
+      const canvas = document.createElement("canvas");
+      const context = canvas.getContext("2d");
+
+      if (!context) {
+        throw new Error("Could not create canvas context");
+      }
+
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
+
+      // Render PDF page to canvas
+      await page.render({
+        canvasContext: context,
+        viewport: viewport,
+      }).promise;
+
+      return canvas.toDataURL("image/png");
     } catch (error) {
-      console.log(error);
+      console.error("Error converting PDF to image:", error);
+      throw error;
     }
+  };
+
+  /**
+   * Parse receipt text to extract structured data
+   * @param text - Raw text from OCR
+   * @returns - Structured receipt data
+   */
+  const parseReceiptText = (text: string): ReceiptData => {
+    // Normalize text by removing extra spaces and converting to lowercase
+    const normalizedText = text.toLowerCase().trim();
+    const lines = normalizedText
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    // Initialize receipt data structure
+    const receiptData: ReceiptData = {
+      subtotal: null,
+      tax: null,
+      total: null,
+      items: [],
+      raw: text,
+    };
+
+    // Regular expressions for finding relevant data
+    const subtotalRegex = /sub[-\s]*total[\s:]*\$?\s*(\d+\.\d{2})/i;
+    const taxRegex = /(?:tax|vat|gst|hst|TPS|tps|T™VQ|TVQ|tvq)[\s:]*\$?\s*(\d+\.\d{2})/i;
+    const totalRegex = /(?:TOTAL|total|amt|amount|sum)[\s:]*\$?\s*(\d+\.\d{2})/i;
+
+    // Helper function to extract price using regex
+    const extractPrice = (regex: RegExp, str: string): number | null => {
+      const match = str.match(regex);
+      if (match && match[1]) {
+        return parseFloat(match[1]);
+      }
+      return null;
+    };
+
+    // Try to find subtotal, tax, and total in the entire text first
+    receiptData.subtotal = extractPrice(subtotalRegex, normalizedText);
+    receiptData.tax = extractPrice(taxRegex, normalizedText);
+    receiptData.total = extractPrice(totalRegex, normalizedText);
+
+    // If total wasn't found with regex, try to find the largest number in the receipt
+    if (!receiptData.total) {
+      const allAmounts = normalizedText.match(/\d+\.\d{2}/g) || [];
+      const numberAmounts = allAmounts.map((amount) => parseFloat(amount));
+
+      if (numberAmounts.length > 0) {
+        receiptData.total = Math.max(...numberAmounts);
+      }
+    }
+
+    // Try to extract items with prices
+    const itemPriceRegex = /(.+?)\s+\$?\s*(\d+\.\d{2})\s*$/;
+
+    for (const line of lines) {
+      const match = line.match(itemPriceRegex);
+
+      if (match && match[1] && match[2]) {
+        const description = match[1].trim();
+        const price = parseFloat(match[2]);
+
+        // Skip if this appears to be a subtotal, tax, or total line
+        if (
+          line.includes("subtotal") ||
+          line.includes("tax") ||
+          line.includes("total") ||
+          line.includes("sum") ||
+          line.includes("amount")
+        ) {
+          continue;
+        }
+
+        receiptData.items.push({
+          description,
+          price,
+        });
+      }
+    }
+
+    return receiptData;
+  };
+
+  /**
+   * Main function to extract receipt data
+   */
+  async function extract() {
+    if (!worker || !preview) return;
+
+    try {
+      setProcessingStage("Preparing document...");
+
+      // Process based on file type
+      let imageToProcess = preview.toString();
+
+      if (fileType === "pdf") {
+        imageToProcess = await convertPdfToImage(imageToProcess);
+      }
+
+      setProcessingStage("Performing OCR...");
+
+      // Perform OCR with optimized settings
+      const result = await Tesseract.recognize(imageToProcess, "eng", {
+        tessedit_char_whitelist:
+          "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.$:,%- ",
+        tessedit_pageseg_mode: Tesseract.PSM.SINGLE_BLOCK,
+      } as any);
+
+      setProcessingStage("Analyzing receipt data...");
+
+      // Parse the extracted text
+      const parsedData = parseReceiptText(result.data.text);
+      setReceiptData(parsedData);
+      setProcessingStage("");
+    } catch (error) {
+      console.error("Error during extraction:", error);
+      setProcessingStage("Error occurred during processing");
+    }
+  }
+
+  function resetForm() {
+    setPreview(null);
+    setReceiptData(null);
+    setFileType(null);
+    setFileName("");
+    setProcessingStage("");
   }
 
   return (
@@ -57,16 +232,23 @@ export default function Extracter() {
       <section className="flex gap-[--spacing]">
         {preview ? (
           <div className="w-1/2 flex flex-col gap-[--spacing]">
-            <img
-              className="w-full h-[60vh] aspect-square object-contain"
-              src={preview.toString()}
-              alt=""
-            />
+            <div className="relative w-full h-[60vh] border border-gray-300">
+              {fileType === "image" ? (
+                <Image
+                  className="w-full h-full object-contain"
+                  src={preview.toString()}
+                  alt="Receipt preview"
+                  width={500}
+                  height={800}
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-gray-100">
+                  <p className="font-mono text-lg">{fileName}</p>
+                </div>
+              )}
+            </div>
             <button
-              onClick={() => {
-                setLines(null);
-                setPreview(null);
-              }}
+              onClick={resetForm}
               className="px-[2rem] py-[0.75rem] bg-red-300 border border-red-300"
             >
               Reset
@@ -74,83 +256,105 @@ export default function Extracter() {
           </div>
         ) : (
           <div className="w-1/2 h-[60vh] border grid place-items-center border-black">
-            <input
-              className=""
-              type="file"
-              name="image"
-              onChange={handleOnChange}
-            />
+            <div className="text-center">
+              <h3 className="mb-4 font-semibold">Upload Receipt</h3>
+              <input
+                className="block mx-auto"
+                type="file"
+                name="receipt"
+                accept="image/*,application/pdf"
+                onChange={handleOnChange}
+              />
+              <p className="mt-2 text-sm text-gray-500">Supports images and PDF files</p>
+            </div>
           </div>
         )}
 
         <div className="w-1/2 flex flex-col gap-4">
           <h1 className="title">RECEIPT EXTRACTOR</h1>
           <p>
-            How to use... Simply upload a photo of your recent receipt, and
-            we&apos;ll handle the rest, tracking all your expenses seamlessly!
+            How to use... Simply upload a photo or PDF of your receipt, and we&apos;ll handle the
+            rest, extracting subtotal, tax, and total amounts automatically!
           </p>
 
           {preview &&
             (!isLoading ? (
               <div className="w-full">
-                {lines && items ? (
-                  <div className="flex flex-col">
-                    <p className="text-[1.5rem] font-bold">
-                      Results: (what we detected)
-                    </p>
-                    <hr className="py-2" />
-                    <div>
-                      {items.map((item, key) => (
-                        <p key={key}>
-                          Item {key + 1}: ${item}
-                        </p>
-                      ))}
-                      Total: ${Math.max(...items)}
-                    </div>
-                    {/* <div className="whitespace-pre-line">
-                      {lines.map((line) => {
-                        if (line.text.includes("$")) {
-                          return line.text;
-                        }
-                      })}
-                    </div> */}
+                {processingStage && (
+                  <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded">
+                    <p className="font-mono">{processingStage}</p>
                   </div>
-                ) : (
-                  <button onClick={extract} className="w-full button">
-                    Extract
-                  </button>
                 )}
-              </div>
-            ) : (
-              <div>Loading</div>
-            ))}
 
-          {/* {preview &&
-            (!isLoading ? (
-              <div className="w-full">
-                {logs && (
-                  <div>
-                    <p>{logs.status}</p>
-                    <div className="flex items-center gap-4">
-                      {(logs.progress * 100).toFixed(2)}%
-                      <div
-                        className="w-full bg-yellow-300 h-2.5"
-                        style={{ width: `${logs.progress * 100}%` }}
-                      ></div>
+                {receiptData ? (
+                  <div className="flex flex-col">
+                    <p className="text-[1.5rem] font-bold">Results:</p>
+                    <hr className="py-2" />
+
+                    <div className="font-mono bg-gray-50 p-4 rounded border border-gray-200">
+                      {receiptData.items.length > 0 && (
+                        <div className="mb-4">
+                          <p className="font-bold mb-2">Items:</p>
+                          {receiptData.items.map((item, idx) => (
+                            <div key={idx} className="flex justify-between mb-1">
+                              <span className="truncate mr-4">{item.description}</span>
+                              <span>${item.price.toFixed(2)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="border-t border-gray-300 pt-3 mt-3">
+                        <div className="flex justify-between">
+                          <span>Subtotal:</span>
+                          <span>
+                            {receiptData.subtotal !== null
+                              ? `$${receiptData.subtotal.toFixed(2)}`
+                              : "Not found"}
+                          </span>
+                        </div>
+
+                        <div className="flex justify-between">
+                          <span>Tax:</span>
+                          <span>
+                            {receiptData.tax !== null
+                              ? `$${receiptData.tax.toFixed(2)}`
+                              : "Not found"}
+                          </span>
+                        </div>
+
+                        <div className="flex justify-between font-bold">
+                          <span>Total:</span>
+                          <span>
+                            {receiptData.total !== null
+                              ? `$${receiptData.total.toFixed(2)}`
+                              : "Not found"}
+                          </span>
+                        </div>
+                      </div>
                     </div>
+
+                    <details className="mt-4">
+                      <summary className="cursor-pointer mb-2">View Raw OCR Text</summary>
+                      <pre className="font-mono text-xs bg-gray-50 p-3 rounded border border-gray-200 whitespace-pre-wrap">
+                        {receiptData.raw}
+                      </pre>
+                    </details>
                   </div>
-                )}
-                {text ? (
-                  <p>{text}</p>
                 ) : (
-                  <button onClick={extract} className="w-full button">
-                    Extract
+                  <button
+                    onClick={extract}
+                    className="w-full px-[2rem] py-[0.75rem] bg-blue-500 text-white border border-blue-500 hover:bg-blue-600 transition"
+                  >
+                    Extract Receipt Data
                   </button>
                 )}
               </div>
             ) : (
-              <div>Loading</div>
-            ))} */}
+              <div className="w-full p-4 text-center">
+                <p className="font-mono">Initializing OCR engine...</p>
+              </div>
+            ))}
         </div>
       </section>
     </div>
